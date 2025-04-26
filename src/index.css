@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+body {
+  @apply bg-gradient-to-b from-sky-100 to-slate-50 min-h-screen;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+.fade-in {
+  animation: fadeIn 0.5s ease-out;
+}
+
+.btn-primary {
+  @apply px-4 py-2 bg-blue-600 text-white rounded-lg shadow-md hover:bg-blue-500 transition-all duration-200 active:scale-95;
+}
+
+.btn-secondary {
+  @apply px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-all duration-200 active:scale-95;
+}
+
+.btn-active {
+  @apply bg-green-500 text-white;
+}
+
+.output-box {
+  @apply p-4 bg-slate-100 border border-blue-500 rounded-lg font-mono text-gray-800;
+}
+
+.error-box {
+  @apply p-2 bg-red-100 text-red-600 rounded-lg animate-pulse;
+}
