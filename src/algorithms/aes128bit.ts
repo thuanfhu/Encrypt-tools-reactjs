@@ -37,141 +37,206 @@ const INV_SBOX = new Uint8Array([
 ]);
 
 const RCON = new Uint8Array([
-  0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36,
+  0x8d, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36,
 ]);
 
 function stateToHex(state: Uint8Array): string {
-  return Array.from(state).map(b => b.toString(16).padStart(2, '0')).join(' ');
+  return Array.from(state).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
-function subBytes(state: Uint8Array): void {
-  for (let i = 0; i < 16; i++) {
-    state[i] = SBOX[state[i]];
+function rotWord(w: number): number {
+  return ((w << 8) | (w >>> 24)) >>> 0;
+}
+
+function subWord(w: number): number {
+  let result = 0;
+  for (let i = 0; i < 4; i++) {
+    const byte = (w >>> (24 - i * 8)) & 0xff;
+    result = (result << 8) | SBOX[byte];
   }
+  return result >>> 0;
 }
 
-function invSubBytes(state: Uint8Array): void {
-  for (let i = 0; i < 16; i++) {
-    state[i] = INV_SBOX[state[i]];
+function xorRcon(w: number, j: number): number {
+  const rcon = RCON[j] << 24;
+  return (w ^ rcon) >>> 0;
+}
+
+function g(w: number, j: number): number {
+  const rotW = rotWord(w);
+  const subW = subWord(rotW);
+  return xorRcon(subW, j);
+}
+
+function keyExpansion(key: Uint8Array): Uint32Array {
+  const w = new Uint32Array(44);
+  for (let i = 0; i < 4; i++) {
+    w[i] = (
+      (key[i * 4] << 24) |
+      (key[i * 4 + 1] << 16) |
+      (key[i * 4 + 2] << 8) |
+      key[i * 4 + 3]
+    ) >>> 0;
   }
-}
 
-function shiftRows(state: Uint8Array): void {
-  const temp = new Uint8Array(16);
-  temp.set(state);
-
-  state[1] = temp[5];
-  state[5] = temp[9];
-  state[9] = temp[13];
-  state[13] = temp[1];
-
-  state[2] = temp[10];
-  state[6] = temp[14];
-  state[10] = temp[2];
-  state[14] = temp[6];
-
-  state[3] = temp[15];
-  state[7] = temp[3];
-  state[11] = temp[7];
-  state[15] = temp[11];
-}
-
-function invShiftRows(state: Uint8Array): void {
-  const temp = new Uint8Array(16);
-  temp.set(state);
-
-  state[1] = temp[13];
-  state[5] = temp[1];
-  state[9] = temp[5];
-  state[13] = temp[9];
-
-  state[2] = temp[10];
-  state[6] = temp[14];
-  state[10] = temp[2];
-  state[14] = temp[6];
-
-  state[3] = temp[7];
-  state[7] = temp[11];
-  state[11] = temp[15];
-  state[15] = temp[3];
-}
-
-function mixColumns(state: Uint8Array): void {
-  for (let c = 0; c < 4; c++) {
-    const a0 = state[4 * c];
-    const a1 = state[4 * c + 1];
-    const a2 = state[4 * c + 2];
-    const a3 = state[4 * c + 3];
-
-    state[4 * c] = (mul2(a0) ^ mul3(a1) ^ a2 ^ a3);
-    state[4 * c + 1] = (a0 ^ mul2(a1) ^ mul3(a2) ^ a3);
-    state[4 * c + 2] = (a0 ^ a1 ^ mul2(a2) ^ mul3(a3));
-    state[4 * c + 3] = (mul3(a0) ^ a1 ^ a2 ^ mul2(a3));
-  }
-}
-
-function invMixColumns(state: Uint8Array): void {
-  for (let c = 0; c < 4; c++) {
-    const a0 = state[4 * c];
-    const a1 = state[4 * c + 1];
-    const a2 = state[4 * c + 2];
-    const a3 = state[4 * c + 3];
-
-    state[4 * c] = (mul14(a0) ^ mul11(a1) ^ mul13(a2) ^ mul9(a3));
-    state[4 * c + 1] = (mul9(a0) ^ mul14(a1) ^ mul11(a2) ^ mul13(a3));
-    state[4 * c + 2] = (mul13(a0) ^ mul9(a1) ^ mul14(a2) ^ mul11(a3));
-    state[4 * c + 3] = (mul11(a0) ^ mul13(a1) ^ mul9(a2) ^ mul14(a3));
-  }
-}
-
-function mul2(x: number): number {
-  return ((x << 1) ^ (((x >> 7) & 1) * 0x1b)) & 0xff;
-}
-
-function mul3(x: number): number {
-  return mul2(x) ^ x;
-}
-
-function mul9(x: number): number {
-  return mul2(mul2(mul2(x))) ^ x;
-}
-
-function mul11(x: number): number {
-  return mul2(mul2(mul2(x))) ^ mul2(x) ^ x;
-}
-
-function mul13(x: number): number {
-  return mul2(mul2(mul2(x))) ^ mul2(mul2(x)) ^ x;
-}
-
-function mul14(x: number): number {
-  return mul2(mul2(mul2(x))) ^ mul2(mul2(x)) ^ mul2(x);
-}
-
-function addRoundKey(state: Uint8Array, roundKey: Uint8Array, offset: number): void {
-  for (let i = 0; i < 16; i++) {
-    state[i] ^= roundKey[offset + i];
-  }
-}
-
-function expandKey(key: Uint8Array): Uint8Array {
-  const expandedKey = new Uint8Array(176);
-  expandedKey.set(key);
-
-  for (let i = 16; i < 176; i += 4) {
-    let temp = expandedKey.slice(i - 4, i);
-    if (i % 16 === 0) {
-      temp = new Uint8Array([temp[1], temp[2], temp[3], temp[0]]);
-      for (let j = 0; j < 4; j++) {
-        temp[j] = SBOX[temp[j]];
-      }
-      temp[0] ^= RCON[(i / 16) - 1];
+  for (let i = 4; i < 44; i++) {
+    let temp = w[i - 1];
+    if (i % 4 === 0) {
+      temp = g(temp, i / 4);
     }
+    w[i] = (w[i - 4] ^ temp) >>> 0;
+  }
+  return w;
+}
+
+function addRoundKey(state: Uint32Array, roundKey: Uint32Array, round: number): void {
+  for (let i = 0; i < 4; i++) {
+    state[i] ^= roundKey[round * 4 + i];
+  }
+}
+
+function subBytes(state: Uint32Array): Uint32Array {
+  const result = new Uint32Array(4);
+  for (let i = 0; i < 4; i++) {
+    let word = 0;
     for (let j = 0; j < 4; j++) {
-      expandedKey[i + j] = expandedKey[i - 16 + j] ^ temp[j];
+      const byte = (state[i] >>> (24 - j * 8)) & 0xff;
+      word = (word << 8) | SBOX[byte];
     }
+    result[i] = word >>> 0;
   }
-  return expandedKey;
+  return result;
+}
+
+function invSubBytes(state: Uint32Array): Uint32Array {
+  const result = new Uint32Array(4);
+  for (let i = 0; i < 4; i++) {
+    let word = 0;
+    for (let j = 0; j < 4; j++) {
+      const byte = (state[i] >>> (24 - j * 8)) & 0xff;
+      word = (word << 8) | INV_SBOX[byte];
+    }
+    result[i] = word >>> 0;
+  }
+  return result;
+}
+
+function shiftRows(state: Uint32Array): Uint32Array {
+  const result = new Uint32Array(4);
+  for (let i = 0; i < 4; i++) {
+    const byte1 = (state[i] >>> 24) & 0xff;
+    const byte2 = (state[(i + 1) % 4] >>> 16) & 0xff;
+    const byte3 = (state[(i + 2) % 4] >>> 8) & 0xff;
+    const byte4 = state[(i + 3) % 4] & 0xff;
+    result[i] = (byte1 << 24) | (byte2 << 16) | (byte3 << 8) | byte4;
+  }
+  return result;
+}
+
+function invShiftRows(state: Uint32Array): Uint32Array {
+  const result = new Uint32Array(4);
+  for (let i = 0; i < 4; i++) {
+    const byte1 = (state[i] >>> 24) & 0xff;
+    const byte2 = (state[(i + 3) % 4] >>> 16) & 0xff;
+    const byte3 = (state[(i + 2) % 4] >>> 8) & 0xff;
+    const byte4 = state[(i + 1) % 4] & 0xff;
+    result[i] = (byte1 << 24) | (byte2 << 16) | (byte3 << 8) | byte4;
+  }
+  return result;
+}
+
+function nhan2(w: number): number {
+  let result = w << 1;
+  if (w & 0x80) result ^= 0x1b;
+  return result & 0xff;
+}
+
+function nhan3(w: number): number {
+  return nhan2(w) ^ w;
+}
+
+function nhan9(w: number): number {
+  return (nhan2(nhan2(nhan2(w))) ^ w) & 0xff;
+}
+
+function nhanB(w: number): number {
+  return (nhan2(nhan2(nhan2(w))) ^ nhan2(w) ^ w) & 0xff;
+}
+
+function nhanD(w: number): number {
+  return (nhan2(nhan2(nhan2(w))) ^ nhan2(nhan2(w)) ^ w) & 0xff;
+}
+
+function nhanE(w: number): number {
+  return (nhan2(nhan2(nhan2(w))) ^ nhan2(nhan2(w)) ^ nhan2(w)) & 0xff;
+}
+
+function nhanCot(w: number): number {
+  const byte1 = (w >>> 24) & 0xff;
+  const byte2 = (w >>> 16) & 0xff;
+  const byte3 = (w >>> 8) & 0xff;
+  const byte4 = w & 0xff;
+
+  const kq1 = nhan2(byte1) ^ nhan3(byte2) ^ byte3 ^ byte4;
+  const kq2 = byte1 ^ nhan2(byte2) ^ nhan3(byte3) ^ byte4;
+  const kq3 = byte1 ^ byte2 ^ nhan2(byte3) ^ nhan3(byte4);
+  const kq4 = nhan3(byte1) ^ byte2 ^ byte3 ^ nhan2(byte4);
+
+  return (kq1 << 24) | (kq2 << 16) | (kq3 << 8) | kq4;
+}
+
+function invNhanCot(w: number): number {
+  const byte1 = (w >>> 24) & 0xff;
+  const byte2 = (w >>> 16) & 0xff;
+  const byte3 = (w >>> 8) & 0xff;
+  const byte4 = w & 0xff;
+
+  const kq1 = nhanE(byte1) ^ nhanB(byte2) ^ nhanD(byte3) ^ nhan9(byte4);
+  const kq2 = nhan9(byte1) ^ nhanE(byte2) ^ nhanB(byte3) ^ nhanD(byte4);
+  const kq3 = nhanD(byte1) ^ nhan9(byte2) ^ nhanE(byte3) ^ nhanB(byte4);
+  const kq4 = nhanB(byte1) ^ nhanD(byte2) ^ nhan9(byte3) ^ nhanE(byte4);
+
+  return (kq1 << 24) | (kq2 << 16) | (kq3 << 8) | kq4;
+}
+
+function mixColumns(state: Uint32Array): Uint32Array {
+  const result = new Uint32Array(4);
+  for (let i = 0; i < 4; i++) {
+    result[i] = nhanCot(state[i]);
+  }
+  return result;
+}
+
+function invMixColumns(state: Uint32Array): Uint32Array {
+  const result = new Uint32Array(4);
+  for (let i = 0; i < 4; i++) {
+    result[i] = invNhanCot(state[i]);
+  }
+  return result;
+}
+
+function bytesToState(bytes: Uint8Array): Uint32Array {
+  const state = new Uint32Array(4);
+  for (let i = 0; i < 4; i++) {
+    state[i] = (
+      (bytes[i * 4] << 24) |
+      (bytes[i * 4 + 1] << 16) |
+      (bytes[i * 4 + 2] << 8) |
+      bytes[i * 4 + 3]
+    ) >>> 0;
+  }
+  return state;
+}
+
+function stateToBytes(state: Uint32Array): Uint8Array {
+  const bytes = new Uint8Array(16);
+  for (let i = 0; i < 4; i++) {
+    bytes[i * 4] = (state[i] >>> 24) & 0xff;
+    bytes[i * 4 + 1] = (state[i] >>> 16) & 0xff;
+    bytes[i * 4 + 2] = (state[i] >>> 8) & 0xff;
+    bytes[i * 4 + 3] = state[i] & 0xff;
+  }
+  return bytes;
 }
 
 function pad(plaintext: Uint8Array): Uint8Array {
@@ -206,142 +271,124 @@ export interface AesRound {
   roundKeyValue: string;
 }
 
-export function aesEncrypt(plaintext: Uint8Array, key: Uint8Array, iv: Uint8Array): { ciphertext: Uint8Array; rounds: AesRound[] } {
+export function aesEncrypt(plaintext: Uint8Array, key: Uint8Array): { ciphertext: Uint8Array; rounds: AesRound[] } {
   if (key.length !== 16) throw new Error('Khóa AES phải dài 128 bit (16 byte)');
-  if (iv.length !== 16) throw new Error('IV phải dài 128 bit (16 byte)');
-
   const padded = pad(plaintext);
-  const expandedKey = expandKey(key);
+  const expandedKey = keyExpansion(key);
   const ciphertext = new Uint8Array(padded.length);
   const rounds: AesRound[] = [];
-  let previousBlock = iv.slice();
 
   for (let block = 0; block < padded.length; block += 16) {
-    const state = new Uint8Array(16);
-    state.set(padded.slice(block, block + 16));
-
-    for (let i = 0; i < 16; i++) {
-      state[i] ^= previousBlock[i];
-    }
+    let state = bytesToState(padded.slice(block, block + 16));
 
     rounds.push({
       roundNumber: 0,
-      startOfRound: stateToHex(state),
+      startOfRound: stateToHex(stateToBytes(state)),
       afterSubBytes: '',
       afterShiftRows: '',
       afterMixColumns: '',
-      roundKeyValue: stateToHex(expandedKey.slice(0, 16)),
+      roundKeyValue: stateToHex(stateToBytes(expandedKey.slice(0, 4))),
     });
 
     addRoundKey(state, expandedKey, 0);
     for (let round = 1; round < 10; round++) {
       const roundStart = state.slice();
-      subBytes(state);
+      state = subBytes(state);
       const afterSub = state.slice();
-      shiftRows(state);
+      state = shiftRows(state);
       const afterShift = state.slice();
-      mixColumns(state);
+      state = mixColumns(state);
       const afterMix = state.slice();
-      addRoundKey(state, expandedKey, round * 16);
+      addRoundKey(state, expandedKey, round);
 
       rounds.push({
         roundNumber: round,
-        startOfRound: stateToHex(roundStart),
-        afterSubBytes: stateToHex(afterSub),
-        afterShiftRows: stateToHex(afterShift),
-        afterMixColumns: stateToHex(afterMix),
-        roundKeyValue: stateToHex(expandedKey.slice(round * 16, (round + 1) * 16)),
+        startOfRound: stateToHex(stateToBytes(roundStart)),
+        afterSubBytes: stateToHex(stateToBytes(afterSub)),
+        afterShiftRows: stateToHex(stateToBytes(afterShift)),
+        afterMixColumns: stateToHex(stateToBytes(afterMix)),
+        roundKeyValue: stateToHex(stateToBytes(expandedKey.slice(round * 4, (round + 1) * 4))),
       });
     }
     const roundStart = state.slice();
-    subBytes(state);
+    state = subBytes(state);
     const afterSub = state.slice();
-    shiftRows(state);
+    state = shiftRows(state);
     const afterShift = state.slice();
-    addRoundKey(state, expandedKey, 10 * 16);
+    addRoundKey(state, expandedKey, 10);
 
     rounds.push({
       roundNumber: 10,
-      startOfRound: stateToHex(roundStart),
-      afterSubBytes: stateToHex(afterSub),
-      afterShiftRows: stateToHex(afterShift),
+      startOfRound: stateToHex(stateToBytes(roundStart)),
+      afterSubBytes: stateToHex(stateToBytes(afterSub)),
+      afterShiftRows: stateToHex(stateToBytes(afterShift)),
       afterMixColumns: '',
-      roundKeyValue: stateToHex(expandedKey.slice(10 * 16, 11 * 16)),
+      roundKeyValue: stateToHex(stateToBytes(expandedKey.slice(10 * 4, 11 * 4))),
     });
 
-    ciphertext.set(state, block);
-    previousBlock = state.slice();
+    ciphertext.set(stateToBytes(state), block);
   }
 
   return { ciphertext, rounds };
 }
 
-export function aesDecrypt(ciphertext: Uint8Array, key: Uint8Array, iv: Uint8Array): { plaintext: Uint8Array; rounds: AesRound[] } {
+export function aesDecrypt(ciphertext: Uint8Array, key: Uint8Array): { plaintext: Uint8Array; rounds: AesRound[] } {
   if (key.length !== 16) throw new Error('Khóa AES phải dài 128 bit (16 byte)');
-  if (iv.length !== 16) throw new Error('IV phải dài 128 bit (16 byte)');
   if (ciphertext.length % 16 !== 0) throw new Error('Dữ liệu mã hóa không hợp lệ');
 
-  const expandedKey = expandKey(key);
+  const expandedKey = keyExpansion(key);
   const plaintext = new Uint8Array(ciphertext.length);
   const rounds: AesRound[] = [];
-  let previousBlock = iv.slice();
 
   for (let block = 0; block < ciphertext.length; block += 16) {
-    const state = new Uint8Array(16);
-    state.set(ciphertext.slice(block, block + 16));
-    const currentBlock = state.slice();
+    let state = bytesToState(ciphertext.slice(block, block + 16));
 
     rounds.push({
       roundNumber: 10,
-      startOfRound: stateToHex(state),
+      startOfRound: stateToHex(stateToBytes(state)),
       afterSubBytes: '',
       afterShiftRows: '',
       afterMixColumns: '',
-      roundKeyValue: stateToHex(expandedKey.slice(10 * 16, 11 * 16)),
+      roundKeyValue: stateToHex(stateToBytes(expandedKey.slice(10 * 4, 11 * 4))),
     });
 
-    addRoundKey(state, expandedKey, 10 * 16);
+    addRoundKey(state, expandedKey, 10);
     for (let round = 9; round > 0; round--) {
       const roundStart = state.slice();
-      invShiftRows(state);
+      state = invShiftRows(state);
       const afterShift = state.slice();
-      invSubBytes(state);
+      state = invSubBytes(state);
       const afterSub = state.slice();
-      addRoundKey(state, expandedKey, round * 16);
+      addRoundKey(state, expandedKey, round);
       const afterAdd = state.slice();
-      invMixColumns(state);
+      state = invMixColumns(state);
 
       rounds.push({
         roundNumber: round,
-        startOfRound: stateToHex(roundStart),
-        afterSubBytes: stateToHex(afterSub),
-        afterShiftRows: stateToHex(afterShift),
-        afterMixColumns: stateToHex(afterAdd),
-        roundKeyValue: stateToHex(expandedKey.slice(round * 16, (round + 1) * 16)),
+        startOfRound: stateToHex(stateToBytes(roundStart)),
+        afterSubBytes: stateToHex(stateToBytes(afterSub)),
+        afterShiftRows: stateToHex(stateToBytes(afterShift)),
+        afterMixColumns: stateToHex(stateToBytes(afterAdd)),
+        roundKeyValue: stateToHex(stateToBytes(expandedKey.slice(round * 4, (round + 1) * 4))),
       });
     }
     const roundStart = state.slice();
-    invShiftRows(state);
+    state = invShiftRows(state);
     const afterShift = state.slice();
-    invSubBytes(state);
+    state = invSubBytes(state);
     const afterSub = state.slice();
     addRoundKey(state, expandedKey, 0);
 
     rounds.push({
       roundNumber: 0,
-      startOfRound: stateToHex(roundStart),
-      afterSubBytes: stateToHex(afterSub),
-      afterShiftRows: stateToHex(afterShift),
+      startOfRound: stateToHex(stateToBytes(roundStart)),
+      afterSubBytes: stateToHex(stateToBytes(afterSub)),
+      afterShiftRows: stateToHex(stateToBytes(afterShift)),
       afterMixColumns: '',
-      roundKeyValue: stateToHex(expandedKey.slice(0, 16)),
+      roundKeyValue: stateToHex(stateToBytes(expandedKey.slice(0, 4))),
     });
 
-    for (let i = 0; i < 16; i++) {
-      state[i] ^= previousBlock[i];
-    }
-
-    plaintext.set(state, block);
-    previousBlock = currentBlock;
+    plaintext.set(stateToBytes(state), block);
   }
 
   return { plaintext: unpad(plaintext), rounds };

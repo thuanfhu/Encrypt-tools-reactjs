@@ -10,35 +10,42 @@ const K = new Uint32Array([
 ]);
 
 function rightRotate(x: number, n: number): number {
-  return (x >>> n) | (x << (32 - n));
+  return ((x >>> n) | (x << (32 - n))) >>> 0;
 }
 
 export function sha256(message: string): string {
   const msg = new TextEncoder().encode(message);
-  const msgLen = msg.length * 8;
+  const msgLen = BigInt(msg.length * 8);
 
-  const paddedLen = Math.ceil((msgLen + 65) / 512) * 512;
-  const padded = new Uint8Array(paddedLen / 8);
+  // Padding: ensure length is a multiple of 512 bits (64 bytes)
+  const paddedLen = Math.ceil((msg.length + 9) / 64) * 64;
+  const padded = new Uint8Array(paddedLen);
   padded.set(msg);
   padded[msg.length] = 0x80;
-  for (let i = padded.length - 8; i < padded.length; i++) {
-    padded[i] = (msgLen >>> ((7 - (i % 8)) * 8)) & 0xff;
+  // Append the length as a 64-bit big-endian number
+  for (let i = 0; i < 8; i++) {
+    padded[paddedLen - 8 + i] = Number((msgLen >> BigInt((7 - i) * 8)) & 0xffn);
   }
 
-  let h0 = 0x6a09e667;
-  let h1 = 0xbb67ae85;
-  let h2 = 0x3c6ef372;
-  let h3 = 0xa54ff53a;
-  let h4 = 0x510e527f;
-  let h5 = 0x9b05688c;
-  let h6 = 0x1f83d9ab;
-  let h7 = 0x5be0cd19;
+  let h0 = 0x6a09e667 >>> 0;
+  let h1 = 0xbb67ae85 >>> 0;
+  let h2 = 0x3c6ef372 >>> 0;
+  let h3 = 0xa54ff53a >>> 0;
+  let h4 = 0x510e527f >>> 0;
+  let h5 = 0x9b05688c >>> 0;
+  let h6 = 0x1f83d9ab >>> 0;
+  let h7 = 0x5be0cd19 >>> 0;
 
   const w = new Uint32Array(64);
   for (let i = 0; i < padded.length; i += 64) {
+    // Prepare the message schedule
     for (let t = 0; t < 16; t++) {
-      w[t] = (padded[i + t * 4] << 24) | (padded[i + t * 4 + 1] << 16) |
-             (padded[i + t * 4 + 2] << 8) | padded[i + t * 4 + 3];
+      w[t] = (
+        (padded[i + t * 4] << 24) |
+        (padded[i + t * 4 + 1] << 16) |
+        (padded[i + t * 4 + 2] << 8) |
+        padded[i + t * 4 + 3]
+      ) >>> 0;
     }
     for (let t = 16; t < 64; t++) {
       const s0 = rightRotate(w[t - 15], 7) ^ rightRotate(w[t - 15], 18) ^ (w[t - 15] >>> 3);
@@ -75,6 +82,8 @@ export function sha256(message: string): string {
     h7 = (h7 + h) >>> 0;
   }
 
-  const hash = [h0, h1, h2, h3, h4, h5, h6, h7].map(h => h.toString(16).padStart(8, '0')).join('');
+  const hash = [h0, h1, h2, h3, h4, h5, h6, h7]
+    .map(h => h.toString(16).padStart(8, '0'))
+    .join('');
   return hash;
 }

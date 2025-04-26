@@ -24,23 +24,25 @@ export function modPow(base: bigint, exponent: bigint, modulus: bigint): bigint 
 function findPrimitiveRoot(p: bigint): bigint {
   if (!isPrime(p)) throw new Error('P phải là số nguyên tố');
   const phi = p - 1n;
-  let g = 2n;
-  while (g < p) {
+  const factors: bigint[] = [];
+  let n = phi;
+  for (let i = 2n; i * i <= n; i++) {
+    if (n % i === 0n) {
+      factors.push(i);
+      while (n % i === 0n) n /= i;
+    }
+  }
+  if (n > 1n) factors.push(n);
+
+  for (let g = 2n; g < p; g++) {
     let isPrimitive = true;
-    for (let i = 2n; i * i <= phi; i++) {
-      if (phi % i === 0n) {
-        if (modPow(g, phi / i, p) === 1n) {
-          isPrimitive = false;
-          break;
-        }
-        if (modPow(g, i, p) === 1n) {
-          isPrimitive = false;
-          break;
-        }
+    for (const factor of factors) {
+      if (modPow(g, phi / factor, p) === 1n) {
+        isPrimitive = false;
+        break;
       }
     }
     if (isPrimitive) return g;
-    g++;
   }
   throw new Error('Không tìm thấy căn nguyên thủy');
 }
@@ -66,7 +68,7 @@ export function generateDHParameters(): DHParameters {
 
 export function generateDHKeyPair(params: DHParameters): DHKeyPair {
   const { P } = params;
-  const privateKey = BigInt(Math.floor(Math.random() * Number(P - 2n)) + 2);
+  const privateKey = BigInt(Math.floor(Math.random() * Number(P - 4n)) + 2); // From 2 to P-2
   const publicKey = modPow(params.G, privateKey, P);
   return { publicKey, privateKey };
 }

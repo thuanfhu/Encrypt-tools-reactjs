@@ -4,7 +4,6 @@ import { aesEncrypt, aesDecrypt, AesRound } from '../algorithms/aes128bit';
 export default function Aes128UI() {
   const [text, setText] = useState('');
   const [key, setKey] = useState('');
-  const [iv, setIv] = useState('');
   const [mode, setMode] = useState<'encrypt' | 'decrypt'>('encrypt');
   const [result, setResult] = useState('');
   const [rounds, setRounds] = useState<AesRound[]>([]);
@@ -17,25 +16,22 @@ export default function Aes128UI() {
     try {
       if (!text) throw new Error('Vui lòng nhập văn bản!');
       if (key.length !== 16) throw new Error('Khóa phải dài đúng 16 ký tự!');
-      if (iv.length !== 16) throw new Error('IV phải dài đúng 16 ký tự!');
 
-      const textBytes = new TextEncoder().encode(text);
+      const textBytes = mode === 'encrypt'
+        ? new TextEncoder().encode(text)
+        : new Uint8Array((text.match(/.{1,2}/g) || []).map(byte => parseInt(byte, 16)));
       const keyBytes = new TextEncoder().encode(key.slice(0, 16));
-      const ivBytes = new TextEncoder().encode(iv.slice(0, 16));
 
       if (mode === 'encrypt') {
-        const { ciphertext, rounds } = aesEncrypt(textBytes, keyBytes, ivBytes);
+        const { ciphertext, rounds } = aesEncrypt(textBytes, keyBytes);
         setResult(
           Array.from(ciphertext)
-            .map((b) => b.toString(16).padStart(2, '0'))
+            .map(b => b.toString(16).padStart(2, '0'))
             .join('')
         );
         setRounds(rounds);
       } else {
-        const ciphertext = new Uint8Array(
-          (text.match(/.{1,2}/g) || []).map((byte) => parseInt(byte, 16))
-        );
-        const { plaintext, rounds } = aesDecrypt(ciphertext, keyBytes, ivBytes);
+        const { plaintext, rounds } = aesDecrypt(textBytes, keyBytes);
         setResult(new TextDecoder().decode(plaintext));
         setRounds(rounds);
       }
@@ -44,11 +40,8 @@ export default function Aes128UI() {
     }
   };
 
-  // Hàm chuyển đổi hex string thành mảng 4x4 để hiển thị lưới
   const hexToGrid = (hex: string): string[][] => {
-    const grid: string[][] = Array(4)
-      .fill(0)
-      .map(() => Array(4).fill(''));
+    const grid: string[][] = Array(4).fill(0).map(() => Array(4).fill(''));
     let index = 0;
     for (let i = 0; i < 4; i++) {
       for (let j = 0; j < 4; j++) {
@@ -84,15 +77,6 @@ export default function Aes128UI() {
             value={key}
             onChange={(e) => setKey(e.target.value)}
             placeholder="Nhập khóa"
-          />
-        </div>
-        <div>
-          <label className="block text-gray-700 font-medium mb-2">Vector khởi tạo (IV, 16 ký tự)</label>
-          <input
-            className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            value={iv}
-            onChange={(e) => setIv(e.target.value)}
-            placeholder="Nhập IV"
           />
         </div>
         <div className="flex gap-4">
@@ -148,7 +132,7 @@ export default function Aes128UI() {
                       </td>
                       <td className="border border-gray-200 p-3">
                         <div className="grid grid-cols-4 gap-1">
-                          {hexToGrid(round.afterSubBytes).map((row, rowIndex) =>
+                          {hexToGrid(round.afterSubBytes || '').map((row, rowIndex) =>
                             row.map((cell, colIndex) => (
                               <div
                                 key={`${rowIndex}-${colIndex}`}
@@ -162,7 +146,7 @@ export default function Aes128UI() {
                       </td>
                       <td className="border border-gray-200 p-3">
                         <div className="grid grid-cols-4 gap-1">
-                          {hexToGrid(round.afterShiftRows).map((row, rowIndex) =>
+                          {hexToGrid(round.afterShiftRows || '').map((row, rowIndex) =>
                             row.map((cell, colIndex) => (
                               <div
                                 key={`${rowIndex}-${colIndex}`}
