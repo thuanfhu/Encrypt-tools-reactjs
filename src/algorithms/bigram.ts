@@ -46,10 +46,7 @@ export function findPosition(table: string[][], char: string): [number, number] 
   return [-1, -1];
 }
 
-export function bigramEncrypt(
-  plaintext: string,
-  key: string
-): { ciphertext: string; duplicates: string[]; isPadded: boolean } {
+export function bigramEncrypt(plaintext: string, key: string): { ciphertext: string; duplicates: string[]; isPadded: boolean } {
   const table = generateBigramTable(key);
   let cleanText = plaintext.toUpperCase().replace(/[^A-Z .,-]/g, '');
   const duplicates: string[] = [];
@@ -87,11 +84,7 @@ export function bigramEncrypt(
   return { ciphertext, duplicates, isPadded };
 }
 
-export function bigramDecrypt(
-  ciphertext: string,
-  key: string,
-  isPadded: boolean
-): string {
+export function bigramDecrypt(ciphertext: string,key: string,isPadded: boolean): string {
   const table = generateBigramTable(key);
   let plaintext = '';
 
@@ -101,7 +94,6 @@ export function bigramDecrypt(
     const [row1, col1] = findPosition(table, char1);
     const [row2, col2] = findPosition(table, char2);
 
-    // Kiểm tra xem cặp ký tự có phải là kết quả của cặp trùng không
     if (char1 === char2) {
       const newRow = row1 === 0 ? 4 : row1 - 1;
       plaintext += table[newRow][col1] + table[newRow][col1];

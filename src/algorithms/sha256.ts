@@ -22,6 +22,7 @@ export function sha256(message: string): string {
   const padded = new Uint8Array(paddedLen);
   padded.set(msg);
   padded[msg.length] = 0x80;
+
   // Append the length as a 64-bit big-endian number
   for (let i = 0; i < 8; i++) {
     padded[paddedLen - 8 + i] = Number((msgLen >> BigInt((7 - i) * 8)) & 0xffn);
@@ -62,14 +63,7 @@ export function sha256(message: string): string {
       const maj = (a & b) ^ (a & c) ^ (b & c);
       const temp2 = (S0 + maj) >>> 0;
 
-      h = g;
-      g = f;
-      f = e;
-      e = (d + temp1) >>> 0;
-      d = c;
-      c = b;
-      b = a;
-      a = (temp1 + temp2) >>> 0;
+      h = g; g = f; f = e; e = (d + temp1) >>> 0; d = c; c = b; b = a; a = (temp1 + temp2) >>> 0;
     }
 
     h0 = (h0 + a) >>> 0;

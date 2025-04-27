@@ -10,7 +10,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('bigram');
 
   const tabs = [
-    { id: 'bigram', name: 'Mã Bigram', component: <BigramUI /> },
+    { id: 'bigram', name: 'Mã hóa Bigram', component: <BigramUI /> },
     { id: 'sha256', name: 'SHA-256', component: <Sha256UI /> },
     { id: 'diffieHellman', name: 'Diffie-Hellman', component: <DiffieHellmanUI /> },
     { id: 'euclid', name: 'Euclid', component: <EuclidUI /> },

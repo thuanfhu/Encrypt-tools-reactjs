@@ -53,15 +53,15 @@ export interface DHParameters {
   G: bigint;
 }
 
-interface DHKeyPair {
-  publicKey: bigint;
-  privateKey: bigint;
-}
-
 export function generateDHParameters(P: bigint): DHParameters {
   if (!isPrime(P)) throw new Error('P phải là số nguyên tố');
   const G = findPrimitiveRoot(P);
   return { P, G };
+}
+
+export interface DHKeyPair {
+  publicKey: bigint;
+  privateKey: bigint;
 }
 
 export function generateDHKeyPair(params: DHParameters, privateKey: bigint): DHKeyPair {
@@ -90,19 +90,14 @@ export function deriveAESKey(sharedSecret: bigint): Uint8Array {
   return keyBytes;
 }
 
-export function performDHExchange(
-  params: DHParameters,
-  privateKeyA: bigint,
-  privateKeyB: bigint
+export function performDHExchange(params: DHParameters, privateKeyA: bigint, privateKeyB: bigint
 ): { keyPairA: DHKeyPair; keyPairB: DHKeyPair; sharedSecret: bigint; details: DHDetails } {
   const keyPairA = generateDHKeyPair(params, privateKeyA);
   const keyPairB = generateDHKeyPair(params, privateKeyB);
   const sharedSecretA = computeDHSharedSecret(params, privateKeyA, keyPairB.publicKey);
   const sharedSecretB = computeDHSharedSecret(params, privateKeyB, keyPairA.publicKey);
 
-  if (sharedSecretA !== sharedSecretB) {
-    throw new Error('Bí mật chung không khớp!');
-  }
+  if (sharedSecretA !== sharedSecretB) throw new Error('Bí mật chung không khớp!');
 
   const steps: string[] = [];
   steps.push(`Bước\\ 1: Alice\\ và\\ Bob\\ lấy\\ số\\ công\\ khai\\ P = ${params.P},\\ G = ${params.G}`);

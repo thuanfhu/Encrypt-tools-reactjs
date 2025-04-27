@@ -32,7 +32,7 @@ export default function BigramUI() {
 
   return (
     <div className="bg-white p-8 rounded-xl shadow-lg fade-in">
-      <h2 className="text-3xl font-bold mb-6 text-blue-800">Mã Bigram (Playfair)</h2>
+      <h2 className="text-3xl font-bold mb-6 text-blue-800">Mã hóa Bigram (Playfair)</h2>
       <div className="grid gap-6">
         <div>
           <label className="block text-gray-700 font-medium mb-2">Văn bản</label>

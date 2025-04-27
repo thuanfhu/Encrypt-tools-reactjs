@@ -1,19 +1,19 @@
 import { modPow } from './diffie-hellman';
 import { sha256 } from './sha256';
 
-// Định nghĩa cấu trúc chữ ký Schnorr
+// Schnorr signature structure
 export interface SchnorrSignature {
   e: bigint; // e = H(M || x)
   y: bigint; // y = (r + s * e) mod q
 }
 
-// Thuật toán Miller-Rabin để kiểm tra số nguyên tố
+// Miller-Rabin primality test
 function isPrime(n: bigint, k: number = 5): boolean {
   if (n <= 1n) return false;
   if (n === 2n || n === 3n) return true;
   if (n % 2n === 0n) return false;
 
-  // Tìm d và s sao cho n-1 = d * 2^s
+  // Find d and s such that n-1 = d * 2^s
   let d = n - 1n;
   let s = 0n;
   while (d % 2n === 0n) {
@@ -21,7 +21,7 @@ function isPrime(n: bigint, k: number = 5): boolean {
     s += 1n;
   }
 
-  // Test Miller-Rabin
+  // Miller-Rabin test
   for (let i = 0; i < k; i++) {
     const a = 2n + BigInt(Math.floor(Math.random() * Number(n - 4n))); // Random [2, n-2]
     let x = modPow(a, d, n);
@@ -41,21 +41,21 @@ function isPrime(n: bigint, k: number = 5): boolean {
   return true;
 }
 
-// Kiểm tra xem a có phải là căn nguyên thủy bậc q modulo p không
+// Check if 'a' is a primitive root of order q modulo p
 function isValidGenerator(a: bigint, p: bigint, q: bigint): boolean {
   if (a <= 1n || a >= p) return false;
   if (modPow(a, q, p) !== 1n) return false;
-  // Đảm bảo a có bậc đúng bằng q
+  // Ensure a has exact order q
   for (let i = 1n; i < q; i++) {
     if (modPow(a, i, p) === 1n) return false;
   }
   return true;
 }
 
-// Tạo số ngẫu nhiên an toàn trong khoảng [0, max-1]
+// Generate secure random number in range [0, max-1]
 function getSecureRandom(max: bigint, fixedValue?: bigint): bigint {
   if (fixedValue !== undefined && fixedValue >= 0n && fixedValue < max) {
-    return fixedValue; // Dùng giá trị cố định cho test
+    return fixedValue; // Use fixed value for testing
   }
   const byteLength = (max.toString(2).length + 7) >> 3;
   let rand;
@@ -67,7 +67,7 @@ function getSecureRandom(max: bigint, fixedValue?: bigint): bigint {
   return rand;
 }
 
-// Bước 2: Tạo cặp khóa (Key Generation)
+// Step 2: Key generation
 export function generateKeyPair(
   p: bigint,
   a: bigint,
@@ -83,13 +83,13 @@ export function generateKeyPair(
   return { privateKey: s, publicKey: v };
 }
 
-// Bước 3: Ký tin nhắn (Sign Message)
+// Step 3: Sign message
 export function signMessage(
-  message: string,
-  privateKey: bigint,
-  p: bigint,
-  a: bigint,
-  q: bigint,
+  message: string, 
+  privateKey: bigint, 
+  p: bigint, 
+  a: bigint, 
+  q: bigint, 
   fixedR?: bigint
 ): SchnorrSignature {
   if (!isPrime(p)) throw new Error('p must be a prime number');
@@ -104,7 +104,7 @@ export function signMessage(
   return { e, y };
 }
 
-// Bước 4: Xác minh chữ ký (Verify Signature)
+// Step 4: Verify signature
 export function verifySignature(
   signature: SchnorrSignature,
   publicKey: bigint,

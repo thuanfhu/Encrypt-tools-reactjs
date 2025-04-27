@@ -211,7 +211,7 @@ export default function SchnorrUI() {
             />
           </div>
           <div>
-            <label className="block text-gray-700 font-medium mb-2">B阶 nhóm con (q)</label>
+            <label className="block text-gray-700 font-medium mb-2">Bậc của nhóm con (q)</label>
             <input
               className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
               value={q}
