@@ -15,7 +15,7 @@ export default function Aes128UI() {
     setRounds([]);
     try {
       if (!text) throw new Error('Vui lòng nhập văn bản!');
-      if (key.length !== 16) throw new Error('Khóa phải dài đúng 16 ký tự!');
+      if (key.length !== 32) throw new Error('Khóa phải dài đúng 32 ký tự!');
 
       const textBytes = mode === 'encrypt'
         ? new TextEncoder().encode(text)

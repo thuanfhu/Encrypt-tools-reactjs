@@ -1,36 +1,41 @@
-import { useState } from 'react';
-import { performDHExchange, generateDHParameters, DHDetails } from '../algorithms/diffie-hellman';
+import { useState, useEffect } from 'react';
+import { performDHExchange, DHDetails } from '../algorithms/diffie-hellman';
+import katex from 'katex';
 
 export default function DiffieHellmanUI() {
-  const [p, setP] = useState('23');
-  const [g, setG] = useState('5');
-  const [otherPublicKey, setOtherPublicKey] = useState('15');
+  const [p, setP] = useState(import.meta.env.VITE_DH_PRIME || '23');
+  const [g, setG] = useState('9');
+  const [privateKeyA, setPrivateKeyA] = useState('4');
+  const [privateKeyB, setPrivateKeyB] = useState('3');
   const [result, setResult] = useState<DHDetails | null>(null);
   const [error, setError] = useState('');
 
-  const handleSubmit = () => {
+  const handleExchange = () => {
     setError('');
     setResult(null);
     try {
       const params = { P: BigInt(p), G: BigInt(g) };
-      const otherPubKey = BigInt(otherPublicKey);
-      const { details } = performDHExchange(params, otherPubKey);
+      const privateA = BigInt(privateKeyA);
+      const privateB = BigInt(privateKeyB);
+
+      const { details } = performDHExchange(params, privateA, privateB);
       setResult(details);
     } catch (e: any) {
       setError(e.message || 'Đã xảy ra lỗi!');
     }
   };
 
-  const handleGenerateParams = () => {
-    setError('');
-    try {
-      const params = generateDHParameters();
-      setP(params.P.toString());
-      setG(params.G.toString());
-    } catch (e: any) {
-      setError(e.message || 'Không thể tạo tham số!');
+  useEffect(() => {
+    if (result) {
+      document.querySelectorAll('.math').forEach((element) => {
+        const latex = element.textContent || '';
+        katex.render(latex, element as HTMLElement, {
+          throwOnError: false,
+          displayMode: false,
+        });
+      });
     }
-  };
+  }, [result]);
 
   return (
     <div className="bg-white p-8 rounded-xl shadow-lg fade-in">
@@ -55,33 +60,36 @@ export default function DiffieHellmanUI() {
           />
         </div>
         <div>
-          <label className="block text-gray-700 font-medium mb-2">Khóa công khai khác</label>
+          <label className="block text-gray-700 font-medium mb-2">Khóa riêng của Alice (a)</label>
           <input
             className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            value={otherPublicKey}
-            onChange={(e) => setOtherPublicKey(e.target.value)}
-            placeholder="Nhập khóa công khai của bên kia"
+            value={privateKeyA}
+            onChange={(e) => setPrivateKeyA(e.target.value)}
+            placeholder="Nhập khóa riêng của Alice"
           />
         </div>
-        <div className="flex gap-4">
-          <button className="btn-primary" onClick={handleGenerateParams}>
-            Tạo tham số
-          </button>
-          <button className="btn-primary" onClick={handleSubmit}>
-            Tính toán
-          </button>
+        <div>
+          <label className="block text-gray-700 font-medium mb-2">Khóa riêng của Bob (b)</label>
+          <input
+            className="w-full p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            value={privateKeyB}
+            onChange={(e) => setPrivateKeyB(e.target.value)}
+            placeholder="Nhập khóa riêng của Bob"
+          />
         </div>
+        <button className="btn-primary" onClick={handleExchange}>
+          Trao đổi khóa
+        </button>
         {error && <p className="error-box">{error}</p>}
         {result && (
           <div>
-            <label className="block text-gray-700 font-medium mb-2">Kết quả</label>
+            <label className="block text-gray-700 font-medium mb-2">Các bước tính toán</label>
             <div className="output-box">
-              <p>Số nguyên tố (P): {result.P.toString()}</p>
-              <p>Căn nguyên thủy (G): {result.G.toString()}</p>
-              <p>Khóa riêng: {result.privateKey.toString()}</p>
-              <p>Khóa công khai: {result.publicKey.toString()}</p>
-              <p>Khóa công khai bên kia: {result.otherPublicKey.toString()}</p>
-              <p>Bí mật chung: {result.sharedSecret.toString()}</p>
+              {result.steps.map((step, index) => (
+                <p key={index} className="math">
+                  {step}
+                </p>
+              ))}
             </div>
           </div>
         )}

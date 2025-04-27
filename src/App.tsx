@@ -22,7 +22,7 @@ export default function App() {
     <div className="min-h-screen">
       <header className="bg-blue-800 text-white py-8 shadow-lg">
         <h1 className="text-4xl font-bold text-center tracking-tight">
-          Công cụ Mật mã
+          Công cụ mật mã
         </h1>
       </header>
       <nav className="bg-white shadow-md sticky top-0 z-10">
